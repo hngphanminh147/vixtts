@@ -1,0 +1,16 @@
+[project]
+name = "vixtts"
+version = "1.0.0"
+description = "ViXTTS Project"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+
+[tool.ruff]
