@@ -13,7 +13,7 @@ app = Flask(__name__)
 # Init the TTS model
 wrapper = XTTSWrapper(
     model_dir="models/viXTTS",
-    audio_path="models/viXTTS/vi_sample.wav"
+    audio_path="models/viXTTS/samples/nu-calm.wav"
 )
 
 

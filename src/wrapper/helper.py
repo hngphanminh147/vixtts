@@ -8,6 +8,8 @@ from .model import XTTSWrapper
 
 from wrapper.constants import DEFAULT_SAMPLE_RATE, DEFAUL_OUTPUT_FILE_NAME, DEFAULT_OUTPUT_FILE_LENGTH
 
+import os
+
 
 def normalize_numbers(text: str):
     """Converts numerical digits in text to their Vietnamese word representation.
@@ -109,11 +111,20 @@ def fine_tune_audio(audio, **kwargs):
         np.array: Processed audio data.
     """
 
-    import os
     sample_rate = kwargs.get("sample_rate", DEFAULT_SAMPLE_RATE)
 
     # Get keep_silence_duration from env or use 0.2 as default (better for short text)
     keep_silence = float(os.getenv('XTTS_KEEP_SILENCE_DURATION', '0.2'))
+    # audio_duration = len(audio) / sample_rate
+    # if audio_duration < 2.0:
+    #     keep_silence = 0.1
+    # elif audio_duration < 5.0:
+    #     keep_silence = 0.15
+    # else:
+    #     keep_silence = 0.2
+
+    # keep_silence = float(
+    #     os.getenv('XTTS_KEEP_SILENCE_DURATION', str(keep_silence)))
 
     audio = trim_silence(audio, sr=sample_rate,
                          keep_silence_duration=keep_silence)
@@ -229,6 +240,84 @@ def split_into_sentences(paragraph: str, max_len: int = 250, language: str = "vi
 
     return chunks
 
+# refine-inference-param-cal1.md
+
+
+def calculate_inference_params(text: str):
+    """Calculate optimal inference parameters for xTTS based on text characteristics."""
+    text = text.strip()
+    text_len = len(text)
+    punctuation_count = sum(1 for c in text if c in ',.!?;:—-')
+    punctuation_density = punctuation_count / max(text_len, 1)
+    words = text.lower().split()
+    unique_words = len(set(words))
+    word_count = len(words)
+    word_diversity = unique_words / max(word_count, 1)
+
+    params = {}
+
+    # --- Handle very short sentences ---
+    if word_count < 15:
+        # Reduce speed to avoid stretching
+        params['speed'] = 1.04
+        # params['speed'] = 1.0
+        # Prevent model from "stretching"
+        params['length_penalty'] = 0.75
+        params['temperature'] = 0.8
+        params['repetition_penalty'] = 1.5
+        params['enable_text_splitting'] = False
+        return params
+
+    # --- Adjust for medium/long sentences ---
+    # Speed control
+    if punctuation_density > 0.05:
+        # Reduce speed if there are many punctuation marks
+        params['speed'] = 0.98
+    elif text_len > 200:
+        params['speed'] = 0.95
+    else:
+        params['speed'] = 1.0
+
+    # Length penalty (prevent over/under generation)
+    if text_len < 80:
+        params['length_penalty'] = 1.0
+    elif text_len > 200:
+        params['length_penalty'] = 1.1
+    else:
+        params['length_penalty'] = 1.05
+
+    # Temperature
+    if word_diversity > 0.7:
+        params['temperature'] = 0.75
+    elif word_diversity < 0.5:
+        params['temperature'] = 0.7
+    else:
+        params['temperature'] = 0.72
+
+    # Repetition penalty
+    if word_count > 50 and word_diversity < 0.6:
+        params['repetition_penalty'] = 4.0
+    elif word_count > 30:
+        params['repetition_penalty'] = 3.0
+    else:
+        params['repetition_penalty'] = 2.0
+
+    # Enable sentence-based splitting, not length-based
+    params['enable_text_splitting'] = False
+
+    return params
+
+
+def split_text_smart(text: str):
+    """
+    Split text by sentence boundaries using punctuation, 
+    avoiding splitting mid-clause.
+    """
+    # Split by '.', '!', '?', ';', ':' but keep punctuation
+    sentences = re.split(r'(?<=[.!?;:])\s+', text.strip())
+    sentences = [s for s in sentences if s]
+    return sentences
+
 
 def paragraph_to_audio(model: XTTSWrapper, paragraph: str, language: str = "vi"):
     """Converts a paragraph of text into a dictionary of audio segments for each sentence.
@@ -250,7 +339,6 @@ def paragraph_to_audio(model: XTTSWrapper, paragraph: str, language: str = "vi")
     """
 
     sentences = split_into_sentences(paragraph, language=language)
-    audio_list = []
     audio_map = {}
     for index, sentence in enumerate(sentences):
         print(f"Processing Sentence {index}: {sentence}")
@@ -261,18 +349,27 @@ def paragraph_to_audio(model: XTTSWrapper, paragraph: str, language: str = "vi")
         # Normalize text before procesing
         text = normalize_text(text)
 
+        # Calculate inference parameters based on text characteristics
+        # inference_params = calculate_inference_params(text)
+        inference_params = calculate_inference_params(text)
+
         out_wav = model.inference(
             text=text,
             language=language,
+            **inference_params
         )
+
+        # out_wav = model.inference(
+        #     text=text,
+        #     language=language,
+        # )
 
         # Fine tune the audio output
         tuned_audio = fine_tune_audio(
             out_wav["wav"], sample_rate=DEFAULT_SAMPLE_RATE)
 
-        # Append the trimmed audio to the list
-        audio_list.append(tuned_audio)
         # Map the audio to its corresponding text
-        audio_map[f"{index}_{text[:DEFAULT_OUTPUT_FILE_LENGTH]}"] = tuned_audio
+        audio_name = f"{index}_{sentence[:DEFAULT_OUTPUT_FILE_LENGTH]}"
+        audio_map[audio_name] = tuned_audio
 
     return audio_map

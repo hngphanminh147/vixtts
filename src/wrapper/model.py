@@ -85,26 +85,29 @@ class XTTSWrapper:
 
         # Use default values if not provided in kwargs
         # torch.Tensor
-        gpt_cond_latent = kwargs.get(
+        gpt_cond_latent = kwargs.pop(
             "gpt_cond_latent", self.model_gpt_cond_latent)
         # torch.Tensor
-        speaker_embedding = kwargs.get(
+        speaker_embedding = kwargs.pop(
             "speaker_embedding", self.model_speaker_embedding)
-        temperature = kwargs.get("temperature", self.temperature)
-        length_penalty = kwargs.get(
+        temperature = kwargs.pop("temperature", self.temperature)
+        length_penalty = kwargs.pop(
             "length_penalty", self.length_penalty)
-        repetition_penalty = kwargs.get(
+        repetition_penalty = kwargs.pop(
             "repetition_penalty", self.repetition_penalty)
-        top_k = kwargs.get("top_k", self.top_k)
-        top_p = kwargs.get("top_p", self.top_p)
+        top_k = kwargs.pop("top_k", self.top_k)
+        top_p = kwargs.pop("top_p", self.top_p)
 
         # Additional parameters that significantly affect quality
         # Load from environment variables with defaults
-        do_sample = kwargs.get("do_sample", os.getenv(
+        do_sample = kwargs.pop("do_sample", os.getenv(
             'XTTS_DO_SAMPLE', 'True').lower() == 'true')
-        speed = kwargs.get("speed", float(os.getenv('XTTS_SPEED', '1.0')))
-        enable_text_splitting = kwargs.get(
+        speed = kwargs.pop("speed", float(os.getenv('XTTS_SPEED', '1.0')))
+        enable_text_splitting = kwargs.pop(
             "enable_text_splitting", os.getenv('XTTS_ENABLE_TEXT_SPLITTING', 'True').lower() == 'true')
+
+        print(
+            f"Inference Parameters: temperature: {temperature}, length_penalty: {length_penalty}, repetition_penalty: {repetition_penalty}, top_k: {top_k}, top_p: {top_p}, do_sample: {do_sample}, speed: {speed}, enable_text_splitting: {enable_text_splitting}")
 
         return self.model.inference(
             text=text,
