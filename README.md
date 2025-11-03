@@ -8,6 +8,7 @@ A Vietnamese Text-to-Speech (TTS) project using the Coqui TTS framework.
 - [Project Structure](#project-structure)
 - [Setup Instructions](#setup-instructions)
 - [Configuration](#configuration)
+- [Model Configuration](#model-configuration)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 
@@ -161,6 +162,59 @@ venvPath = "."
 venv = ".venv"
 ```
 
+## Model Configuration
+
+The XTTS model uses configurable inference parameters that significantly affect audio quality. These are loaded from the `.env` file with model config defaults as fallback.
+
+**Important**: The `.env` file is already created with optimal values from the model configuration. You typically don't need to change these unless fine-tuning.
+
+### Quick Start
+
+1. Install python-dotenv (if not already installed):
+```bash
+pip install python-dotenv==1.0.1
+```
+
+2. The `.env` file is already configured with optimal values
+
+3. Start the application - it will automatically load the configuration
+
+### Configuration Parameters
+
+| Parameter | Working Value | Model Config | Impact on Quality |
+|-----------|---------------|--------------|-------------------|
+| `XTTS_TEMPERATURE` | 0.3 | 0.85 | Lower = more consistent (works better) |
+| `XTTS_REPETITION_PENALTY` | 10.0 | 2.0 | Higher works better for this model |
+| `XTTS_TOP_K` | 30 | 50 | More focused = better quality |
+| `XTTS_TOP_P` | 0.85 | 0.85 | Standard sampling threshold |
+| `XTTS_LENGTH_PENALTY` | 1.0 | 1.0 | Audio duration control |
+| `XTTS_DO_SAMPLE` | True | - | Enables nucleus sampling (keep True) |
+| `XTTS_SPEED` | 1.0 | - | Normal speed |
+| `XTTS_ENABLE_TEXT_SPLITTING` | True | - | Better text processing |
+
+### Important Discovery
+
+**After empirical testing**: The model config defaults (temperature=0.85, repetition_penalty=2.0) produced **worse quality** than the original hardcoded values.
+
+**Current configuration** (reverted to original working values):
+- `TEMPERATURE=0.3` (not 0.85) - Works better for this specific model
+- `REPETITION_PENALTY=10.0` (not 2.0) - High value works well for this model
+- `TOP_K=30` (not 50) - More focused vocabulary produces better results
+
+**Key Learning**: Model config defaults don't always produce the best results. The original "wrong" values actually worked better for this specific use case. All parameters are now configurable via `.env` for easy tuning.
+
+### Detailed Configuration Guides
+
+**[TUNING_GUIDE.md](TUNING_GUIDE.md)** - Complete parameter tuning guide:
+- How to adjust parameters for your use case
+- Effects of each parameter on audio quality
+- Tuning strategies for short vs long text
+- Testing workflow and best practices
+
+**[CONFIG_GUIDE.md](CONFIG_GUIDE.md)** - Technical configuration reference
+
+**[FINAL_ANALYSIS.md](FINAL_ANALYSIS.md)** - Complete analysis of the issues found
+
 ## Troubleshooting
 
 ### Virtual Environment Not Activating
@@ -256,12 +310,13 @@ pip freeze | grep -v "TTS==" > requirements_no_tts.txt
 
 ### Environment Variables
 
-Create a `.env` file (gitignored) for sensitive configuration:
+A `.env` file is used to configure model inference parameters. See [Model Configuration](#model-configuration) for details.
 
 ```bash
-# Example .env structure
-MODEL_PATH=/path/to/model
-OUTPUT_DIR=./output
+# The .env file contains XTTS model parameters
+XTTS_TEMPERATURE=0.85
+XTTS_REPETITION_PENALTY=2.0
+# ... etc
 ```
 
 ## Notes
